@@ -8,6 +8,7 @@ module sccomp(clk, rstn, reg_sel, reg_data);
    wire [31:0]    PC;
    wire           MemWrite;
    wire [31:0]    dm_addr, dm_din, dm_dout;
+   wire [2:0]     dm_type;
    
    wire reset;
    assign reset = rstn;
@@ -22,6 +23,7 @@ module sccomp(clk, rstn, reg_sel, reg_data);
          .PC_out(PC),                 // output: PC to im
          .Addr_out(dm_addr),          // output: address from cpu to memory/dm
          .Data_out(dm_din),           // output: data from cpu to memory/dm
+         .DM_type(dm_type),           // output: data memory access type
          .reg_sel(reg_sel),         // input:  register selection
          .reg_data(reg_data)        // output: register data
          );
@@ -30,8 +32,9 @@ module sccomp(clk, rstn, reg_sel, reg_data);
          .clk(clk),           // input:  cpu clock
          .DMWr(MemWrite),     // input:  ram write
          .addr(dm_addr),      // input:  ram address
-         .din(dm_din),         // input:  data to ram
-         .dout(dm_dout)        // output: data from ram
+         .din(dm_din),        // input:  data to ram
+         .DMType(dm_type),    // input:  access type
+         .dout(dm_dout)       // output: data from ram
          );
          
   // instantiation of intruction memory (used for simulation)
@@ -41,24 +44,3 @@ module sccomp(clk, rstn, reg_sel, reg_data);
          );
   
 endmodule
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

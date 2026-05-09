@@ -3,7 +3,7 @@
 module ctrl(Op, Funct7, Funct3, Zero, 
             RegWrite, MemWrite,
             EXTOp, ALUOp, NPCOp, 
-            ALUSrc, WDSel
+            ALUSrc, WDSel, DMType, ALUSrcA
             );
             
    input  [6:0] Op;       // opcode
@@ -18,11 +18,15 @@ module ctrl(Op, Funct7, Funct3, Zero,
    output [2:0] NPCOp;    // next pc operation
    output       ALUSrc;   // ALU source for B 
    output [1:0] WDSel;    // (register) write data selection
+   output [2:0] DMType;   // data memory access type
+   output       ALUSrcA;  // ALU source for A: 0=RD1, 1=PC
    
    //Op[6]&Op[5]&Op[4]&Op[3]&Op[2]&Op[1]&Op[0];
    
    //LUI
    wire LUI = ~Op[6]&Op[5]&Op[4]&~Op[3]&Op[2]&Op[1]&Op[0];
+   //AUIPC
+   wire i_auipc = ~Op[6]&~Op[5]&Op[4]&~Op[3]&Op[2]&Op[1]&Op[0]; //0010111
       
   // r format 0110011
     wire rtype  = ~Op[6]&Op[5]&Op[4]&~Op[3]&~Op[2]&Op[1]&Op[0]; //0110011
@@ -38,7 +42,11 @@ module ctrl(Op, Funct7, Funct3, Zero,
     wire i_sltu = rtype & ~Funct7[6] & ~Funct7[5] & ~Funct7[4] & ~Funct7[3] & ~Funct7[2] & ~Funct7[1] & ~Funct7[0] & ~Funct3[2] & Funct3[1] & Funct3[0]; // sltu 0000000 011
  // i format load 0000011
     wire itype_l  = ~Op[6]&~Op[5]&~Op[4]&~Op[3]&~Op[2]&Op[1]&Op[0]; //0000011
-    wire i_lw = itype_l&~Funct3[2]& Funct3[1]&~Funct3[0];//lw 010
+    wire i_lw  = itype_l&~Funct3[2]& Funct3[1]&~Funct3[0];//lw 010
+    wire i_lh  = itype_l&~Funct3[2]&~Funct3[1]& Funct3[0]; //lh 001
+    wire i_lhu = itype_l& Funct3[2]&~Funct3[1]& Funct3[0]; //lhu 101
+    wire i_lb  = itype_l&~Funct3[2]&~Funct3[1]&~Funct3[0]; //lb 000
+    wire i_lbu = itype_l& Funct3[2]&~Funct3[1]&~Funct3[0]; //lbu 100
 
   // i format 0010011
     wire itype_r  = ~Op[6]&~Op[5]&Op[4]&~Op[3]&~Op[2]&Op[1]&Op[0]; //0010011
@@ -56,6 +64,8 @@ module ctrl(Op, Funct7, Funct3, Zero,
   // s format 0100011
     wire stype  = ~Op[6]&Op[5]&~Op[4]&~Op[3]&~Op[2]&Op[1]&Op[0]; //0100011
     wire i_sw   =  stype& ~Funct3[2]& Funct3[1]&~Funct3[0]; // sw 010
+    wire i_sh   =  stype& ~Funct3[2]&~Funct3[1]& Funct3[0]; // sh 001
+    wire i_sb   =  stype& ~Funct3[2]&~Funct3[1]&~Funct3[0]; // sb 000
 
   // sb format 1100011
     wire sbtype  = Op[6]&Op[5]&~Op[4]&~Op[3]&~Op[2]&Op[1]&Op[0];//1100011
@@ -71,9 +81,9 @@ module ctrl(Op, Funct7, Funct3, Zero,
     wire i_jalr = Op[6]&Op[5]&~Op[4]&~Op[3]&Op[2]&Op[1]&Op[0];
 
   // generate control signals
-  assign RegWrite   = rtype | itype_r | LUI | itype_l | i_jal | i_jalr; // register write
+  assign RegWrite   = rtype | itype_r | LUI | i_auipc | itype_l | i_jal | i_jalr; // register write
   assign MemWrite   = stype;                           // memory write
-  assign ALUSrc     = itype_r | LUI | itype_l | stype | i_jal | i_jalr;   // ALU B is from instruction immediate
+  assign ALUSrc     = itype_r | LUI | i_auipc | itype_l | stype | i_jal | i_jalr;   // ALU B is from instruction immediate
 
   // signed extension
   // EXT_CTRL_ITYPE_SHAMT 6'b100000
@@ -86,7 +96,7 @@ module ctrl(Op, Funct7, Funct3, Zero,
   assign EXTOp[4]    = i_addi | i_andi | i_ori | i_xori | i_slti | i_sltui | itype_l | i_jalr;
   assign EXTOp[3]    = stype; 
   assign EXTOp[2]    = sbtype; 
-  assign EXTOp[1]    = LUI;
+  assign EXTOp[1]    = LUI | i_auipc;
   assign EXTOp[0]    = i_jal;         
   
   // WDSel_FromALU 2'b00
@@ -116,7 +126,15 @@ module ctrl(Op, Funct7, Funct3, Zero,
     assign ALUOp[4] = i_srl | i_sra | i_srli | i_srai;
     assign ALUOp[3] = i_and | i_andi | i_or | i_ori | i_sll| i_slli | i_xor | i_xori | i_slt | i_sltu | i_slti | i_sltui | i_bltu | i_bgeu;
     assign ALUOp[2] = i_and | i_andi| i_or | i_ori | i_sub | i_beq | i_sll | i_slli | i_xor | i_xori | i_beq | i_bne | i_blt | i_bge;
-    assign ALUOp[1] = i_addi | i_add | i_and | i_andi | i_sll | i_slli | itype_l | stype | i_slt | i_sltu | i_slti | i_sltui | i_jalr | i_blt | i_bge;
+    assign ALUOp[1] = i_addi | i_add | i_and | i_andi | i_sll | i_slli | itype_l | stype | i_slt | i_sltu | i_slti | i_sltui | i_jalr | i_blt | i_bge | i_auipc;
 	  assign ALUOp[0] = i_addi | i_add | i_or | i_ori | LUI | i_sll | i_slli | i_sra | i_srai | itype_l | stype | i_sltu | i_sltui | i_jalr | i_bne | i_bge | i_bgeu;
+
+  // ALUSrcA: 1 when ALU A port selects PC (only AUIPC)
+  assign ALUSrcA = i_auipc;
+
+  // DMType: data memory access width + sign/zero extension control
+  assign DMType[2] = i_lbu;
+  assign DMType[1] = i_lhu | i_lb | i_sb;
+  assign DMType[0] = i_lh  | i_lb | i_sh | i_sb;
 
 endmodule

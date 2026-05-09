@@ -12,6 +12,7 @@ module alu(A, B, ALUOp, C, Zero);
    always @( * ) begin
       case ( ALUOp )
       `ALUOp_lui:C=B;
+      `ALUOp_auipc:C=A+B;
       `ALUOp_add:C=A+B;
       `ALUOp_sub:C=A-B;  //and beq
       `ALUOp_xor:C=A^B;
@@ -34,4 +35,3 @@ module alu(A, B, ALUOp, C, Zero);
    assign Zero = (C == 32'b0);  
 
 endmodule
-    

@@ -7,9 +7,9 @@ module SCCPU(
    
     output    mem_w,          // output: memory write signal
     output [31:0] PC_out,     // PC address
-      // memory write
     output [31:0] Addr_out,   // ALU output
     output [31:0] Data_out,   // data to write data memory
+    output [2:0]  DM_type,    // data memory access type
 
     input  [4:0] reg_sel,    // register selection (for debug use)
     output [31:0] reg_data  // selected register data (for debug use)
@@ -21,6 +21,8 @@ module SCCPU(
     wire [2:0]  NPCOp;       // next PC operation
     wire [1:0]  WDSel;       // (register) write data selection
     wire        ALUSrc;      // ALU source for B
+    wire        ALUSrcA;     // ALU source for A: 0=RD1, 1=PC
+    wire [2:0]  DMType;      // data memory access type
     wire        Zero;        // ALU ouput zero
     wire [31:0] NPC;         // next PC
     wire [4:0]  rs1;          // rs
@@ -42,6 +44,8 @@ module SCCPU(
 	wire [19:0] uimm,jimm;
 	wire [31:0] immout;
     wire [31:0] aluout;
+    wire [31:0] ALU_A;       // muxed A input for ALU
+    assign ALU_A = ALUSrcA ? PC_out : RD1;
     
     assign Addr_out=aluout;
 	assign B = (ALUSrc) ? immout : RD2;
@@ -67,8 +71,9 @@ module SCCPU(
 		.Op(Op), .Funct7(Funct7), .Funct3(Funct3), .Zero(Zero), 
 		.RegWrite(RegWrite), .MemWrite(mem_w),
 		.EXTOp(EXTOp), .ALUOp(ALUOp), .NPCOp(NPCOp), 
-		.ALUSrc(ALUSrc), .WDSel(WDSel)
+		.ALUSrc(ALUSrc), .WDSel(WDSel), .DMType(DMType), .ALUSrcA(ALUSrcA)
 	);
+    assign DM_type = DMType;
  // instantiation of pc unit
 	PC  U_PC(.clk(clk), .rst(reset), .NPC(NPC), .PC(PC_out) );
 	NPC U_NPC(.PC(PC_out), .NPCOp(NPCOp), .IMM(immout), .aluout(aluout), .NPC(NPC));
@@ -86,7 +91,7 @@ module SCCPU(
 		.reg_data(reg_data)
 	);
 // instantiation of alu unit
-	alu U_alu(.A(RD1), .B(B), .ALUOp(ALUOp), .C(aluout), .Zero(Zero));
+	alu U_alu(.A(ALU_A), .B(B), .ALUOp(ALUOp), .C(aluout), .Zero(Zero));
 
 //please connnect the CPU by yourself
 always @*
